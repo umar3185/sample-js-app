@@ -2,7 +2,7 @@ name: Deploy Node.js App
 
 on:
   push:
-    branches: [master]
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -15,7 +15,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18.20.7'
+        node-version: '18.x'
     
     - name: Install dependencies
       run: npm ci
@@ -30,18 +30,36 @@ jobs:
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+        
+        # Debug SSH connection (will be removed after successful connection)
+        ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "echo SSH connection successful"
     
     - name: Deploy to VM
       run: |
-        scp release.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "
+        # Use verbose output for better debugging
+        scp -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no release.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/
+        
+        # Execute deployment commands on remote VM
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "
+          set -e
+          echo 'Creating app directory...'
           mkdir -p ~/app
+          
+          echo 'Extracting application files...'
           tar -xzf /tmp/release.tar.gz -C ~/app
+          
+          echo 'Installing dependencies...'
           cd ~/app
           npm ci --production
+          
+          echo 'Starting/restarting application with PM2...'
           pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+          
+          echo 'Cleaning up...'
           rm /tmp/release.tar.gz
+          
+          echo 'Deployment completed successfully!'
         "
