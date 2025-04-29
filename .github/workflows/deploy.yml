@@ -46,7 +46,21 @@ jobs:
           mkdir -p ~/app
           tar -xzf /tmp/release.tar.gz -C ~/app
           cd ~/app
+          
+          # Confirm ecosystem file exists
+          ls -la
+          if [ ! -f 'ecosystem.config.js' ]; then
+            echo 'ERROR: ecosystem.config.js file is missing!'
+            exit 1
+          fi
+          
+          # Install dependencies
           npm ci --production
-          pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+          
+          # Start/restart with PM2 using full path
+          pm2 list
+          pm2 restart ~/app/ecosystem.config.js || pm2 start ~/app/ecosystem.config.js
+          
+          # Clean up
           rm /tmp/release.tar.gz
         "
