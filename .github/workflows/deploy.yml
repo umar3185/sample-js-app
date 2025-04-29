@@ -28,38 +28,25 @@ jobs:
         tar -czf release.tar.gz -C /tmp/app-release .
     
     - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
-        
-        # Debug SSH connection (will be removed after successful connection)
-        ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "echo SSH connection successful"
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    
+    - name: Add VM host key to known_hosts
+      run: ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
     
     - name: Deploy to VM
       run: |
-        # Use verbose output for better debugging
-        scp -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no release.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/
+        # Copy deployment package to VM
+        scp release.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/
         
-        # Execute deployment commands on remote VM
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "
+        # Execute deployment commands
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.VM_HOST }} "
           set -e
-          echo 'Creating app directory...'
           mkdir -p ~/app
-          
-          echo 'Extracting application files...'
           tar -xzf /tmp/release.tar.gz -C ~/app
-          
-          echo 'Installing dependencies...'
           cd ~/app
           npm ci --production
-          
-          echo 'Starting/restarting application with PM2...'
           pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
-          
-          echo 'Cleaning up...'
           rm /tmp/release.tar.gz
-          
-          echo 'Deployment completed successfully!'
         "
