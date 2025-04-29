@@ -22,7 +22,10 @@ jobs:
       
     - name: Create deployment package
       run: |
-        tar -czf release.tar.gz --exclude=node_modules --exclude=.git .
+        mkdir -p /tmp/app-release
+        cp -R . /tmp/app-release
+        rm -rf /tmp/app-release/node_modules /tmp/app-release/.git
+        tar -czf release.tar.gz -C /tmp/app-release .
     
     - name: Setup SSH
       run: |
