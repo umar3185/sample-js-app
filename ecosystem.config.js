@@ -6,7 +6,7 @@ module.exports = {
         instances: 1,             // Number of instances to run (use 'max' for all CPU cores)
         autorestart: true,        // Automatically restart on crash
         watch: false,             // Set to true if you want PM2 to restart on file changes
-        max_memory_restart: '200M', // Restart if memory exceeds 512MB
+        max_memory_restart: '200M', // Restart if memory exceeds 200MB
         env: {
           NODE_ENV: 'development',
         },
